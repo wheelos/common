@@ -6,42 +6,42 @@ cc_library(
         "monitor_log_buffer.h",
         "monitor_logger.h",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         ":monitor_log_buffer",
         ":monitor_logger",
+        "//modules/common/util:util_tool",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest",
         "@core//cyber",
         "@wheelos_msgs//wheelos_msgs/monitor_msgs:monitor_log_cc_proto",
-        "//modules/common/util:util_tool",
-        "@com_google_googletest//:gtest",
-        "@com_google_absl//absl/strings",
     ],
-    visibility = ["//visibility:public"],
 )
 
 cc_library(
     name = "monitor_logger",
     srcs = ["monitor_logger.cc"],
     hdrs = ["monitor_logger.h"],
-    alwayslink = True,
     deps = [
-        "@core//cyber",
-        "@wheelos_msgs//wheelos_msgs/monitor_msgs:monitor_log_cc_proto",
         "//modules/common/util:util_tool",
         "@com_google_absl//absl/strings",
+        "@core//cyber",
+        "@wheelos_msgs//wheelos_msgs/monitor_msgs:monitor_log_cc_proto",
     ],
+    alwayslink = True,
 )
 
 cc_library(
     name = "monitor_log_buffer",
     srcs = ["monitor_log_buffer.cc"],
     hdrs = ["monitor_log_buffer.h"],
-    alwayslink = True,
     deps = [
         ":monitor_logger",
+        "@com_google_googletest//:gtest",
         "@core//cyber",
         "@wheelos_msgs//wheelos_msgs/monitor_msgs:monitor_log_cc_proto",
-        "@com_google_googletest//:gtest",
     ],
+    alwayslink = True,
 )
 
 cc_test(
