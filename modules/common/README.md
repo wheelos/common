@@ -45,3 +45,14 @@ The vehicle configuration is specified in `configs/data`
 ## vehicle_state
 
 The **vehicle_state** class specifies the current state of the vehicle (e.g. position, velocity, heading, etc.).
+
+## tracking
+
+**tracking** provides sensor-independent multi-object tracking with typed user
+payloads and states, interchangeable estimators, association costs and solvers,
+per-track motion-model selection, independent lifecycle policies and bounded
+resources/history/diagnostics. Generic tracking and scoring targets do not
+require Eigen or geometry; optional feature-specific targets are separate. See
+`modules/common/tracking/` for interfaces and executable examples in its tests.
+The canonical architecture and extension contract live in the Apollo-lite
+`wheelos-service/context/modules/perception/knowledge/generic-tracking-architecture.md`.
