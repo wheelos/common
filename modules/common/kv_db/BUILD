@@ -8,10 +8,7 @@ cc_library(
     hdrs = ["kv_db.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//modules/common/util",
-        "//modules/common/util:util_tool",
         "@com_github_gflags_gflags//:gflags",
-        "@com_google_absl//absl/strings",
         "@core//cyber",
         "@sqlite3",
     ],

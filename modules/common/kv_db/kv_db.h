@@ -19,8 +19,6 @@
 #include <string>
 #include <optional>
 
-#include "modules/common/util/future.h"
-
 /**
  * @namespace apollo::common
  * @brief apollo::common
@@ -47,6 +45,15 @@ class KVDB {
    * @return Success or not.
    */
   static bool Delete(std::string_view key);
+
+  /**
+   * @brief Get a value while distinguishing a missing key from a DB error.
+   * @param value Receives the value, or an empty optional when the key is
+   *              missing.
+   * @return Whether the query completed successfully.
+   */
+  static bool Get(std::string_view key,
+                  std::optional<std::string>* value);
 
   /**
    * @brief Get value of a key.
