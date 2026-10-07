@@ -9,4 +9,12 @@
 
 ## Knowledge
 
+- Index and ownership: `.agents/knowledge/README.md`
 - Bzlmod module design: `.agents/knowledge/bzlmod-modules.md`
+
+## Agent layout
+
+- `.github/` owns GitHub governance; `AGENTS.md` owns shared working rules.
+- `.agents/skills/README.md` indexes task workflows.
+- `.agents/knowledge/` owns durable repository knowledge.
+- `.agents/notes/README.md` describes ignored temporary investigations.
