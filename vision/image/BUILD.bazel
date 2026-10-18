@@ -1,0 +1,81 @@
+load("@rules_cuda//cuda:defs.bzl", "cuda_library")
+
+cc_library(
+    name = "image_stitcher",
+    srcs = ["image_stitcher.cc"],
+    hdrs = ["image_stitcher.h"],
+    strip_include_prefix = "/vision",
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "ipm_transformer",
+    srcs = ["ipm_transformer.cc"],
+    hdrs = ["ipm_transformer.h"],
+    strip_include_prefix = "/vision",
+    deps = [
+        "//vision/camera:camera_model",
+        "@eigen//:eigen",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "opencv_ipm_adapter",
+    srcs = ["opencv_ipm_adapter.cc"],
+    hdrs = ["opencv_ipm_adapter.h"],
+    strip_include_prefix = "/vision",
+    deps = [
+        ":ipm_transformer",
+        "@opencv//:core",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cuda_library(
+    name = "view_transformer",
+    srcs = ["view_transformer.cu"],
+    hdrs = ["view_transformer.h"],
+    includes = [".."],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "image",
+    deps = [
+        ":image_stitcher",
+        ":ipm_transformer",
+        ":view_transformer",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "image_stitcher_test",
+    srcs = ["image_stitcher_test.cc"],
+    deps = [
+        ":image_stitcher",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "ipm_transformer_test",
+    srcs = ["ipm_transformer_test.cc"],
+    deps = [
+        ":ipm_transformer",
+        "//vision/camera:pinhole_camera_model",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "opencv_ipm_adapter_test",
+    srcs = ["opencv_ipm_adapter_test.cc"],
+    deps = [
+        ":opencv_ipm_adapter",
+        "//vision/camera:pinhole_camera_model",
+        "@com_google_googletest//:gtest_main",
+        "@opencv//:core",
+    ],
+)
