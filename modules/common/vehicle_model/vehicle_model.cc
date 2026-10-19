@@ -15,6 +15,7 @@
 #include "absl/strings/str_cat.h"
 
 #include "cyber/common/file.h"
+#include "cyber/common/resource_manager.h"
 #include "modules/common/vehicle_model/vehicle_model_factory.h"
 
 namespace apollo {
@@ -56,7 +57,11 @@ Status VehicleModel::CreateFromFile(
     const std::string& config_file,
     std::unique_ptr<VehicleModel>* vehicle_model) {
   VehicleModelConfig config;
-  if (!cyber::common::GetProtoFromFile(config_file, &config)) {
+  std::string selected_config_file;
+  if (!cyber::common::ResourceManager::InitializeConfigRoot() ||
+      !cyber::common::ResourceManager::ResolveConfigPath(
+          config_file, &selected_config_file) ||
+      !cyber::common::GetProtoFromFile(selected_config_file, &config)) {
     return Status(
         ErrorCode::PLANNING_ERROR,
         absl::StrCat("Failed to load vehicle model config file ", config_file));

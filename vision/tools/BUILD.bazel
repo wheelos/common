@@ -1,0 +1,12 @@
+cc_binary(
+    name = "nuscenes_bev_diagnostic",
+    srcs = ["nuscenes_bev_diagnostic.cc"],
+    deps = [
+        "//vision/camera:pinhole_camera_model",
+        "//vision/image:opencv_ipm_adapter",
+        "@com_github_nlohmann_json//:json",
+        "@eigen//:eigen",
+        "@opencv//:core",
+        "@opencv//:imgcodecs",
+    ],
+)

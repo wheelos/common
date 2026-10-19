@@ -5,6 +5,8 @@ module(
 
 bazel_dep(name = "rules_cc", version = "0.0.9")
 bazel_dep(name = "rules_python", version = "0.34.0")
+bazel_dep(name = "rules_cuda", version = "0.3.0")
+bazel_dep(name = "opencv", version = "4.13.0")
 bazel_dep(name = "protobuf", version = "29.0", repo_name = "com_google_protobuf")
 bazel_dep(name = "wheelos_core", version = "1.0.4.bcr.1", repo_name = "core")
 bazel_dep(name = "wheelos_msgs", version = "0.1.5.bcr.1")
@@ -19,3 +21,10 @@ bazel_dep(name = "nlohmann_json", version = "3.12.0", repo_name = "com_github_nl
 bazel_dep(name = "osqp", version = "1.0.0.bcr.2")
 bazel_dep(name = "proj", version = "9.8.0")
 bazel_dep(name = "sqlite3", version = "3.50.0")
+
+cuda = use_extension("@rules_cuda//cuda:extensions.bzl", "toolchain")
+cuda.toolkit(
+    name = "cuda",
+    toolkit_path = "/usr/local/cuda",
+)
+use_repo(cuda, "cuda")

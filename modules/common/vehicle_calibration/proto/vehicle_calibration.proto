@@ -1,0 +1,36 @@
+syntax = "proto2";
+
+package apollo.common.vehicle_calibration;
+
+message VehicleProfile {
+  optional string vehicle_type = 1;
+  optional string calibration_version = 2;
+  // The profile declares which standardized sensor frames must be present.
+  repeated string required_sensor_frame_id = 3;
+  optional bool test_only = 4 [default = false];
+}
+
+enum SensorType {
+  SENSOR_TYPE_UNSPECIFIED = 0;
+  IMU = 1;
+  LIDAR = 2;
+  CAMERA = 3;
+  GNSS = 4;
+}
+
+message SensorCalibration {
+  optional string sensor_id = 1;
+  optional SensorType sensor_type = 2;
+  optional string parent_frame_id = 3;
+  optional string frame_id = 4;
+  optional string extrinsic_file = 5;
+  optional string intrinsic_file = 6;
+  optional string optical_frame_id = 7;
+  optional string optical_extrinsic_file = 8;
+}
+
+message CalibrationManifest {
+  optional string calibration_version = 1;
+  repeated SensorCalibration sensor = 2;
+  optional string lidar_height_file = 4;
+}

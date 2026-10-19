@@ -1,0 +1,63 @@
+cc_library(
+    name = "image_types",
+    hdrs = ["image.h"],
+    strip_include_prefix = "/vision",
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "cpu_ipm_transformer",
+    srcs = ["cpu_ipm_transformer.cc"],
+    hdrs = ["cpu_ipm_transformer.h"],
+    strip_include_prefix = "/vision",
+    deps = [
+        ":image_types",
+        "//vision/camera:camera_model",
+        "@eigen//:eigen",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "opencv_ipm_adapter",
+    srcs = ["opencv_ipm_adapter.cc"],
+    hdrs = ["opencv_ipm_adapter.h"],
+    strip_include_prefix = "/vision",
+    deps = [
+        ":cpu_ipm_transformer",
+        "@opencv//:core",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "image",
+    deps = [
+        ":cpu_ipm_transformer",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "cpu_ipm_transformer_test",
+    srcs = ["cpu_ipm_transformer_test.cc"],
+    deps = [
+        ":cpu_ipm_transformer",
+        ":image_types",
+        "//vision/camera:omnidirectional_camera_model",
+        "//vision/camera:pinhole_camera_model",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "opencv_ipm_adapter_test",
+    srcs = ["opencv_ipm_adapter_test.cc"],
+    deps = [
+        ":opencv_ipm_adapter",
+        ":image_types",
+        "//vision/camera:pinhole_camera_model",
+        "@com_google_googletest//:gtest_main",
+        "@opencv//:core",
+    ],
+)

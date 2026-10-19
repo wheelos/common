@@ -14,6 +14,7 @@ cc_library(
     deps = [
         "@com_google_absl//absl/strings",
         "@core//cyber",
+        "@core//cyber/common:resource_manager",
         "//modules/common/configs:vehicle_config_helper",
         "//modules/common/math",
         "//modules/common/status",

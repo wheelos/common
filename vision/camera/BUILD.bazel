@@ -1,0 +1,106 @@
+cc_library(
+    name = "camera_geometry",
+    srcs = ["camera_geometry.cc"],
+    hdrs = ["camera_geometry.h"],
+    strip_include_prefix = "/vision",
+    deps = [
+        ":camera_model",
+        "@eigen//:eigen",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "camera_model",
+    hdrs = [
+        "camera_model.h",
+    ],
+    strip_include_prefix = "/vision",
+    deps = [
+        "@eigen//:eigen",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "pinhole_camera_model",
+    srcs = [
+        "pinhole_camera_model.cc",
+    ],
+    hdrs = [
+        "pinhole_camera_model.h",
+    ],
+    strip_include_prefix = "/vision",
+    deps = [
+        ":camera_model",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "omnidirectional_camera_model",
+    srcs = [
+        "omnidirectional_camera_model.cc",
+    ],
+    hdrs = [
+        "omnidirectional_camera_model.h",
+    ],
+    strip_include_prefix = "/vision",
+    deps = [
+        ":camera_model",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "brown_camera_model",
+    srcs = [
+        "brown_camera_model.cc",
+    ],
+    hdrs = [
+        "brown_camera_model.h",
+    ],
+    strip_include_prefix = "/vision",
+    deps = [
+        ":camera_model",
+        ":pinhole_camera_model",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "camera",
+    deps = [
+        ":brown_camera_model",
+        ":camera_geometry",
+        ":camera_model",
+        ":omnidirectional_camera_model",
+        ":pinhole_camera_model",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "camera_geometry_test",
+    srcs = ["camera_geometry_test.cc"],
+    deps = [
+        ":camera_geometry",
+        ":pinhole_camera_model",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "camera_model_test",
+    srcs = [
+        "camera_model_test.cc",
+    ],
+    deps = [
+        ":brown_camera_model",
+        ":camera_model",
+        ":omnidirectional_camera_model",
+        ":pinhole_camera_model",
+        "@com_google_googletest//:gtest_main",
+    ],
+    visibility = ["//visibility:public"],
+)

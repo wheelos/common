@@ -6,9 +6,6 @@ cc_library(
         "config_gflags.cc",
     ],
     hdrs = ["config_gflags.h"],
-    data = [
-        "//modules/common/data:global_flagfile",
-    ],
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_gflags_gflags//:gflags",
@@ -21,14 +18,12 @@ cc_library(
         "vehicle_config_helper.cc",
     ],
     hdrs = ["vehicle_config_helper.h"],
-    data = [
-        "//modules/common/data:vehicle_config_data",
-    ],
     visibility = ["//visibility:public"],
     deps = [
         ":config_gflags",
         "//modules/common/math",
         "@core//cyber",
+        "@core//cyber/common:resource_manager",
         "@wheelos_msgs//wheelos_msgs/basic_msgs:pnc_point_cc_proto",
         "@wheelos_msgs//wheelos_msgs/config_msgs:vehicle_config_cc_proto",
     ],
