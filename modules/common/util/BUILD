@@ -6,7 +6,7 @@ filegroup(
     name = "util_test_data",
     srcs = glob([
         "testdata/*",
-    ]),
+    ], allow_empty = True),
 )
 
 cc_library(
