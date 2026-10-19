@@ -38,12 +38,12 @@ DEFINE_string(speed_control_filename, "speed_control.pb.txt",
               "The speed control region in a map.");
 
 DEFINE_string(vehicle_config_path,
-              "/apollo/modules/common/data/vehicle_param.pb.txt",
+              "modules/global_config/vehicle_param.pb.txt",
               "the file path of vehicle config file");
 
 DEFINE_string(
     vehicle_model_config_filename,
-    "/apollo/modules/common/vehicle_model/conf/vehicle_model_config.pb.txt",
+    "modules/common/vehicle_model/conf/vehicle_model_config.pb.txt",
     "the file path of vehicle model config file");
 
 DEFINE_int32(vehicle_state_reference_point, 0,

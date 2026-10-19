@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "image/ipm_transformer.h"
+#include "image/cpu_ipm_transformer.h"
 
 #include <cmath>
+#include <limits>
 #include <stdexcept>
-#include <utility>
 
 #include <Eigen/Core>
 
@@ -24,21 +24,27 @@ namespace wheel {
 namespace vision {
 namespace image {
 
-IpmTransformer::IpmTransformer(std::shared_ptr<CameraModel> camera_model,
-                               const Eigen::Isometry3d& T_vehicle_camera,
-                               const IpmConfig& config)
-    : camera_model_(std::move(camera_model)),
-      T_vehicle_camera_(T_vehicle_camera),
-      config_(config) {
+CpuIpmTransformer::CpuIpmTransformer(
+    std::shared_ptr<const CameraModel> camera_model,
+    const Eigen::Isometry3d& T_vehicle_camera, const IpmConfig& config)
+    : T_vehicle_camera_(T_vehicle_camera), config_(config) {
+  if (!camera_model) {
+    throw std::invalid_argument("CpuIpmTransformer: camera_model is nullptr.");
+  }
+  if (!camera_model->is_initialized()) {
+    throw std::invalid_argument(
+        "CpuIpmTransformer: camera_model is not initialized.");
+  }
+  camera_image_size_ = camera_model->image_size();
   ValidateInputs();
   ValidateExtrinsics();
   T_camera_vehicle_ = T_vehicle_camera_.inverse();
 
-  PrecomputeLut();
+  PrecomputeLut(*camera_model);
 }
 
-bool IpmTransformer::MapPixel(int bev_x, int bev_y,
-                              Eigen::Vector2f* image_pixel) const {
+bool CpuIpmTransformer::MapPixel(int bev_x, int bev_y,
+                                 Eigen::Vector2f* image_pixel) const {
   if (image_pixel == nullptr || bev_x < 0 || bev_x >= config_.bev_width ||
       bev_y < 0 || bev_y >= config_.bev_height) {
     return false;
@@ -53,50 +59,47 @@ bool IpmTransformer::MapPixel(int bev_x, int bev_y,
   return true;
 }
 
-void IpmTransformer::ValidateInputs() const {
-  if (!camera_model_) {
-    throw std::invalid_argument("IpmTransformer: camera_model is nullptr.");
-  }
-  if (!camera_model_->is_initialized()) {
-    throw std::invalid_argument(
-        "IpmTransformer: camera_model is not initialized.");
-  }
-
+void CpuIpmTransformer::ValidateInputs() const {
   if (!std::isfinite(config_.resolution) || config_.resolution <= 0.0) {
-    throw std::invalid_argument("IpmTransformer: resolution must be positive.");
+    throw std::invalid_argument(
+        "CpuIpmTransformer: resolution must be positive.");
   }
 
   if (config_.bev_width <= 0 || config_.bev_height <= 0) {
-    throw std::invalid_argument("IpmTransformer: invalid BEV size.");
+    throw std::invalid_argument("CpuIpmTransformer: invalid BEV size.");
   }
 
   if (!std::isfinite(config_.x_min) || !std::isfinite(config_.y_min) ||
       !std::isfinite(config_.ground_z)) {
-    throw std::invalid_argument("IpmTransformer: BEV bounds must be finite.");
+    throw std::invalid_argument(
+        "CpuIpmTransformer: BEV bounds must be finite.");
   }
 
-  if (!std::isfinite(config_.min_camera_z) || config_.min_camera_z <= 0.0) {
-    throw std::invalid_argument(
-        "IpmTransformer: min_camera_z must be positive.");
+  constexpr std::size_t kMax = std::numeric_limits<std::size_t>::max();
+  const std::size_t width = static_cast<std::size_t>(config_.bev_width);
+  const std::size_t height = static_cast<std::size_t>(config_.bev_height);
+  if (width > kMax / height ||
+      width * height > std::vector<float>().max_size()) {
+    throw std::invalid_argument("CpuIpmTransformer: BEV size is too large.");
   }
 }
 
-void IpmTransformer::ValidateExtrinsics() const {
+void CpuIpmTransformer::ValidateExtrinsics() const {
   if (!T_vehicle_camera_.matrix().allFinite()) {
     throw std::invalid_argument(
-        "IpmTransformer: T_vehicle_camera must contain finite values.");
+        "CpuIpmTransformer: T_vehicle_camera must contain finite values.");
   }
 
   constexpr double kTransformTolerance = 1e-5;
   for (int col = 0; col < 3; ++col) {
     if (std::abs(T_vehicle_camera_.matrix()(3, col)) > kTransformTolerance) {
       throw std::invalid_argument(
-          "IpmTransformer: T_vehicle_camera must be affine.");
+          "CpuIpmTransformer: T_vehicle_camera must be affine.");
     }
   }
   if (std::abs(T_vehicle_camera_.matrix()(3, 3) - 1.0) > kTransformTolerance) {
     throw std::invalid_argument(
-        "IpmTransformer: T_vehicle_camera must be affine.");
+        "CpuIpmTransformer: T_vehicle_camera must be affine.");
   }
 
   const Eigen::Matrix3d& rotation = T_vehicle_camera_.linear();
@@ -104,11 +107,11 @@ void IpmTransformer::ValidateExtrinsics() const {
               .lpNorm<Eigen::Infinity>() > 1e-3 ||
       std::abs(rotation.determinant() - 1.0) > 1e-3) {
     throw std::invalid_argument(
-        "IpmTransformer: rotation must be orthonormal and right-handed.");
+        "CpuIpmTransformer: rotation must be orthonormal and right-handed.");
   }
 }
 
-void IpmTransformer::PrecomputeLut() {
+void CpuIpmTransformer::PrecomputeLut(const CameraModel& camera_model) {
   const std::size_t map_size = static_cast<std::size_t>(config_.bev_width) *
                                static_cast<std::size_t>(config_.bev_height);
   map_x_.assign(map_size, -1.0f);
@@ -141,13 +144,9 @@ void IpmTransformer::PrecomputeLut() {
               static_cast<std::size_t>(config_.bev_width) +
           static_cast<std::size_t>(c);
 
-      if (point_camera.z() <= config_.min_camera_z) {
-        continue;
-      }
-
       Eigen::Vector2f pt_image;
 
-      if (!camera_model_->RayToPixel(point_camera.cast<float>(), &pt_image)) {
+      if (!camera_model.RayToPixel(point_camera.cast<float>(), &pt_image)) {
         continue;
       }
 

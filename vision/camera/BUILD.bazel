@@ -48,7 +48,6 @@ cc_library(
     strip_include_prefix = "/vision",
     deps = [
         ":camera_model",
-        ":pinhole_camera_model",
     ],
     visibility = ["//visibility:public"],
 )

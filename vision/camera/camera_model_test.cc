@@ -188,7 +188,12 @@ TEST(OmnidirectionalCameraModelTest, RoundTripsOpenCvOmnidirStyleParameters) {
 
   const std::shared_ptr<CameraModel> ideal_model = model.GetIdealModel();
   ASSERT_NE(ideal_model, nullptr);
-  EXPECT_EQ(ideal_model->Type(), CameraModelType::kPinhole);
+  EXPECT_EQ(ideal_model->Type(), CameraModelType::kOmni);
+  const auto ideal_omni_model =
+      std::dynamic_pointer_cast<OmnidirectionalCameraModel>(ideal_model);
+  ASSERT_NE(ideal_omni_model, nullptr);
+  EXPECT_FLOAT_EQ(ideal_omni_model->xi(), model.xi());
+  EXPECT_TRUE(ideal_omni_model->distort_params().isZero());
 }
 
 TEST(OmnidirectionalCameraModelTest, RejectsSingularBackwardsDirection) {

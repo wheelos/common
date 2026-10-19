@@ -53,6 +53,10 @@ payloads and states, interchangeable estimators, association costs and solvers,
 per-track motion-model selection, independent lifecycle policies and bounded
 resources/history/diagnostics. Generic tracking and scoring targets do not
 require Eigen or geometry; optional feature-specific targets are separate. See
-`modules/common/tracking/` for interfaces and executable examples in its tests.
+[`tracking/README.md`](../../tracking/README.md) for package responsibilities,
+public targets, and the industry-aligned tracking-by-detection pipeline.
+Detection and feature extraction remain caller-owned; the tracker consumes
+prepared observations and reports matched, added and expired events separately
+from tentative/confirmed/lost/deleted lifecycle states.
 The canonical architecture and extension contract live in the Apollo-lite
 `wheelos-service/context/modules/perception/knowledge/generic-tracking-architecture.md`.

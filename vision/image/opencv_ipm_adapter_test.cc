@@ -56,7 +56,7 @@ IpmConfig MakeConfig() {
 }
 
 TEST(OpenCvIpmAdapterTest, SupportsNonContinuousSourceImages) {
-  const IpmTransformer transformer(
+  const CpuIpmTransformer transformer(
       MakeCameraModel(), MakeVehicleFromCameraTransform(), MakeConfig());
   cv::Mat padded_source(8, 10, CV_8UC1, cv::Scalar(0));
   cv::Mat source = padded_source(cv::Rect(1, 0, 8, 8));
@@ -78,7 +78,7 @@ TEST(OpenCvIpmAdapterTest, SupportsNonContinuousSourceImages) {
 }
 
 TEST(OpenCvIpmAdapterTest, RejectsUnsupportedDepthAndNullDestination) {
-  const IpmTransformer transformer(
+  const CpuIpmTransformer transformer(
       MakeCameraModel(), MakeVehicleFromCameraTransform(), MakeConfig());
   const cv::Mat unsupported(8, 8, CV_16UC1, cv::Scalar(1));
   cv::Mat output;
@@ -86,6 +86,17 @@ TEST(OpenCvIpmAdapterTest, RejectsUnsupportedDepthAndNullDestination) {
   EXPECT_THROW(TransformOpenCv(transformer, unsupported, &output),
                std::invalid_argument);
   EXPECT_THROW(TransformOpenCv(transformer, unsupported, nullptr),
+               std::invalid_argument);
+}
+
+TEST(OpenCvIpmAdapterTest, RejectsOverlappingRegionsOfSharedStorage) {
+  const CpuIpmTransformer transformer(
+      MakeCameraModel(), MakeVehicleFromCameraTransform(), MakeConfig());
+  cv::Mat storage(8, 10, CV_8UC1, cv::Scalar(0));
+  const cv::Mat source = storage(cv::Rect(0, 0, 8, 8));
+  cv::Mat destination = storage(cv::Rect(2, 2, 2, 2));
+
+  EXPECT_THROW(TransformOpenCv(transformer, source, &destination),
                std::invalid_argument);
 }
 

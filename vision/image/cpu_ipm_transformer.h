@@ -16,7 +16,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -27,6 +26,7 @@
 #include <Eigen/Geometry>
 
 #include "camera/camera_model.h"
+#include "image/image.h"
 
 namespace wheel {
 namespace vision {
@@ -48,9 +48,6 @@ struct IpmConfig {
   // Ground plane height in vehicle frame.
   // Usually z = 0 if vehicle frame origin is on ground.
   double ground_z{0.0};
-
-  // Minimum valid depth in camera frame.
-  double min_camera_z{0.1};
 };
 
 enum class InterpolationMode {
@@ -58,31 +55,14 @@ enum class InterpolationMode {
   kBilinear,
 };
 
-// A non-owning view of an interleaved image. row_stride is measured in scalar
-// elements; zero selects tightly packed rows. The source and destination
-// buffers passed to IpmTransformer::Transform must not overlap.
-template <typename Scalar>
-struct ImageView {
-  Scalar* data = nullptr;
-  int width = 0;
-  int height = 0;
-  int channels = 0;
-  std::size_t row_stride = 0;
-
-  std::size_t RowStride() const {
-    return row_stride == 0 ? static_cast<std::size_t>(width) *
-                                 static_cast<std::size_t>(channels)
-                           : row_stride;
-  }
-};
-
-class IpmTransformer {
+class CpuIpmTransformer {
  public:
+  // Builds a CPU-side BEV-to-camera lookup table from the camera model.
   // T_vehicle_camera maps camera-frame coordinates into the right-handed
   // vehicle frame (x right, y forward, z up).
-  IpmTransformer(std::shared_ptr<CameraModel> camera_model,
-                 const Eigen::Isometry3d& T_vehicle_camera,
-                 const IpmConfig& config);
+  CpuIpmTransformer(std::shared_ptr<const CameraModel> camera_model,
+                    const Eigen::Isometry3d& T_vehicle_camera,
+                    const IpmConfig& config);
 
   // Returns the projected source-image pixel for a BEV coordinate. Coordinates
   // outside the BEV or failed projections return false.
@@ -91,8 +71,9 @@ class IpmTransformer {
   int bev_width() const { return config_.bev_width; }
   int bev_height() const { return config_.bev_height; }
 
-  // Resamples an interleaved image using the precomputed BEV mapping. Scalar
-  // types must be arithmetic; integral output is rounded and saturated.
+  // Resamples CPU-resident, interleaved images using the precomputed mapping.
+  // Source and destination storage must not overlap. Integral output is rounded
+  // and saturated.
   template <typename Scalar>
   void Transform(
       const ImageView<const Scalar>& src_img,
@@ -102,9 +83,9 @@ class IpmTransformer {
  private:
   void ValidateInputs() const;
   void ValidateExtrinsics() const;
-  void PrecomputeLut();
+  void PrecomputeLut(const CameraModel& camera_model);
 
-  std::shared_ptr<CameraModel> camera_model_;
+  ImageSize camera_image_size_;
   Eigen::Isometry3d T_vehicle_camera_ = Eigen::Isometry3d::Identity();
   Eigen::Isometry3d T_camera_vehicle_ = Eigen::Isometry3d::Identity();
   IpmConfig config_;
@@ -114,21 +95,6 @@ class IpmTransformer {
 };
 
 namespace internal {
-
-template <typename Scalar>
-bool IsValidImageView(const ImageView<Scalar>& image) {
-  static_assert(
-      std::is_arithmetic<typename std::remove_const<Scalar>::type>::value,
-      "ImageView scalar type must be arithmetic.");
-  if (image.data == nullptr || image.width <= 0 || image.height <= 0 ||
-      image.channels <= 0) {
-    return false;
-  }
-  const std::size_t packed_stride = static_cast<std::size_t>(image.width) *
-                                    static_cast<std::size_t>(image.channels);
-  return image.RowStride() >= packed_stride;
-}
-
 template <typename Scalar>
 Scalar SaturateSample(double value) {
   if constexpr (std::is_integral<Scalar>::value) {
@@ -158,31 +124,36 @@ double ReadSample(const ImageView<const Scalar>& image, int x, int y,
 }  // namespace internal
 
 template <typename Scalar>
-void IpmTransformer::Transform(const ImageView<const Scalar>& src_img,
-                               const ImageView<Scalar>& dst_bev_img,
-                               InterpolationMode interpolation) const {
+void CpuIpmTransformer::Transform(const ImageView<const Scalar>& src_img,
+                                  const ImageView<Scalar>& dst_bev_img,
+                                  InterpolationMode interpolation) const {
   static_assert(std::is_arithmetic<Scalar>::value,
                 "Image scalar type must be arithmetic.");
   if (!internal::IsValidImageView(src_img) ||
       !internal::IsValidImageView(dst_bev_img)) {
     throw std::invalid_argument(
-        "IpmTransformer::Transform: invalid image view.");
+        "CpuIpmTransformer::Transform: invalid image view.");
   }
-  if (src_img.width != static_cast<int>(camera_model_->width()) ||
-      src_img.height != static_cast<int>(camera_model_->height())) {
+  if (internal::ImageViewsOverlap(src_img, dst_bev_img)) {
     throw std::invalid_argument(
-        "IpmTransformer::Transform: source size does not match camera model.");
+        "CpuIpmTransformer::Transform: image views must not overlap.");
+  }
+  if (src_img.width != static_cast<int>(camera_image_size_.width) ||
+      src_img.height != static_cast<int>(camera_image_size_.height)) {
+    throw std::invalid_argument(
+        "CpuIpmTransformer::Transform: source size does not match camera "
+        "model.");
   }
   if (dst_bev_img.width != config_.bev_width ||
       dst_bev_img.height != config_.bev_height ||
       dst_bev_img.channels != src_img.channels) {
     throw std::invalid_argument(
-        "IpmTransformer::Transform: destination size or channels mismatch.");
+        "CpuIpmTransformer::Transform: destination size or channels mismatch.");
   }
   if (interpolation != InterpolationMode::kNearest &&
       interpolation != InterpolationMode::kBilinear) {
     throw std::invalid_argument(
-        "IpmTransformer::Transform: unsupported interpolation mode.");
+        "CpuIpmTransformer::Transform: unsupported interpolation mode.");
   }
 
   for (int y = 0; y < config_.bev_height; ++y) {

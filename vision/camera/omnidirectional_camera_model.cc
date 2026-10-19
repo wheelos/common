@@ -16,8 +16,6 @@
 
 #include <cmath>
 
-#include "camera/pinhole_camera_model.h"
-
 namespace wheel {
 namespace vision {
 
@@ -207,8 +205,11 @@ std::shared_ptr<CameraModel> OmnidirectionalCameraModel::GetIdealModel() const {
     return nullptr;
   }
 
-  auto model = std::make_shared<PinholeCameraModel>();
-  return model->Init(width_, height_, intrinsic_matrix_) ? model : nullptr;
+  auto model = std::make_shared<OmnidirectionalCameraModel>();
+  return model->Init(width_, height_, intrinsic_matrix_, xi_,
+                     Eigen::Matrix<float, 4, 1>::Zero())
+             ? model
+             : nullptr;
 }
 
 }  // namespace vision

@@ -21,6 +21,7 @@
 
 #include "cyber/common/file.h"
 #include "cyber/common/log.h"
+#include "cyber/common/resource_manager.h"
 #include "modules/common/configs/config_gflags.h"
 
 namespace apollo {
@@ -35,7 +36,11 @@ void VehicleConfigHelper::Init() { Init(FLAGS_vehicle_config_path); }
 
 void VehicleConfigHelper::Init(const std::string &config_file) {
   VehicleConfig params;
-  ACHECK(cyber::common::GetProtoFromFile(config_file, &params))
+  std::string selected_config_file;
+  ACHECK(cyber::common::ResourceManager::InitializeConfigRoot() &&
+         cyber::common::ResourceManager::ResolveConfigPath(
+             config_file, &selected_config_file) &&
+         cyber::common::GetProtoFromFile(selected_config_file, &params))
       << "Unable to parse vehicle config file " << config_file;
   Init(params);
 }

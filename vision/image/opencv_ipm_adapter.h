@@ -16,16 +16,16 @@
 
 #include <opencv2/core.hpp>
 
-#include "image/ipm_transformer.h"
+#include "image/cpu_ipm_transformer.h"
 
 namespace wheel {
 namespace vision {
 namespace image {
 
-// OpenCV convenience adapter for 8-bit and 32-bit floating-point images.
-// OpenCV is required only by this adapter, not by IpmTransformer.
+// OpenCV convenience adapter for CV_8U and CV_32F images. OpenCV is required
+// only by this adapter, not by CpuIpmTransformer.
 void TransformOpenCv(
-    const IpmTransformer& transformer, const cv::Mat& src_img,
+    const CpuIpmTransformer& transformer, const cv::Mat& src_img,
     cv::Mat* dst_bev_img,
     InterpolationMode interpolation = InterpolationMode::kBilinear);
 

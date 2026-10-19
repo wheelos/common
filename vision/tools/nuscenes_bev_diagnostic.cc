@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -44,7 +46,8 @@ constexpr std::array<const char*, 6> kCameraChannels = {
     "CAM_BACK",  "CAM_BACK_LEFT",  "CAM_BACK_RIGHT",
 };
 constexpr double kBevResolution = 0.1;
-constexpr double kBevRadiusMeters = 30.0;
+constexpr double kBevForwardRangeMeters = 60.0;
+constexpr double kGroundRayEpsilon = 1e-9;
 
 struct SampleData {
   std::string sample_token;
@@ -255,10 +258,87 @@ std::string JoinPath(const std::string& root, const std::string& relative) {
   return root + "/" + relative;
 }
 
+IpmConfig MakeAutoFitConfig(const CameraModel& camera_model,
+                            const Eigen::Isometry3d& T_vehicle_camera) {
+  const ImageSize image_size = camera_model.image_size();
+  const Eigen::Vector3d camera_origin = T_vehicle_camera.translation();
+  double min_x = std::numeric_limits<double>::infinity();
+  double max_x = -std::numeric_limits<double>::infinity();
+
+  const auto include_ground_intersection = [&](float pixel_x, float pixel_y) {
+    Eigen::Vector3f ray_camera;
+    if (!camera_model.PixelToRay(Eigen::Vector2f(pixel_x, pixel_y),
+                                 &ray_camera)) {
+      return;
+    }
+    const Eigen::Vector3d ray_vehicle =
+        T_vehicle_camera.linear() * ray_camera.cast<double>();
+    if (ray_vehicle.z() >= -kGroundRayEpsilon) {
+      return;
+    }
+    const double distance = (0.0 - camera_origin.z()) / ray_vehicle.z();
+    if (!std::isfinite(distance) || distance <= 0.0) {
+      return;
+    }
+    const Eigen::Vector3d point_vehicle =
+        camera_origin + distance * ray_vehicle;
+    if (point_vehicle.y() >= 0.0 &&
+        point_vehicle.y() <= kBevForwardRangeMeters) {
+      min_x = std::min(min_x, point_vehicle.x());
+      max_x = std::max(max_x, point_vehicle.x());
+    }
+  };
+
+  const int last_x = static_cast<int>(image_size.width) - 1;
+  const int last_y = static_cast<int>(image_size.height) - 1;
+  for (int x = 0; x <= last_x; ++x) {
+    include_ground_intersection(static_cast<float>(x), 0.0f);
+    include_ground_intersection(static_cast<float>(x),
+                                static_cast<float>(last_y));
+  }
+  for (int y = 1; y < last_y; ++y) {
+    include_ground_intersection(0.0f, static_cast<float>(y));
+    include_ground_intersection(static_cast<float>(last_x),
+                                static_cast<float>(y));
+  }
+  if (!std::isfinite(min_x) || !std::isfinite(max_x)) {
+    throw std::runtime_error(
+        "camera image has no ground projection within the forward range");
+  }
+
+  IpmConfig config;
+  config.resolution = kBevResolution;
+  config.x_min = std::floor(min_x / config.resolution) * config.resolution;
+  config.y_min = 0.0;
+  const double x_max = std::ceil(max_x / config.resolution) * config.resolution;
+  const double width =
+      std::ceil((x_max - config.x_min) / config.resolution) + 1.0;
+  const double height =
+      std::ceil(kBevForwardRangeMeters / config.resolution) + 1.0;
+  if (width > static_cast<double>(std::numeric_limits<int>::max()) ||
+      height > static_cast<double>(std::numeric_limits<int>::max())) {
+    throw std::runtime_error("auto-fit BEV dimensions exceed supported size");
+  }
+  config.bev_width = std::max(1, static_cast<int>(width));
+  config.bev_height = std::max(1, static_cast<int>(height));
+  return config;
+}
+
 void RunDiagnostic(const std::string& dataset_root,
                    const std::string& metadata_dir,
                    const std::string& sample_token,
+                   const std::string& selected_channel,
                    const std::string& output_path) {
+  if (std::find(kCameraChannels.begin(), kCameraChannels.end(),
+                selected_channel) == kCameraChannels.end()) {
+    throw std::runtime_error("unsupported camera channel: " + selected_channel);
+  }
+  if (output_path.size() < 4 ||
+      output_path.substr(output_path.size() - 4) != ".png") {
+    throw std::runtime_error(
+        "output path must end in .png for lossless image encoding");
+  }
+
   const std::string sample_table_path = metadata_dir + "/sample.json";
   Json sample_table = ReadJsonArray(sample_table_path);
 
@@ -308,19 +388,17 @@ void RunDiagnostic(const std::string& dataset_root,
         calibrated_sensors.at(sample_data.calibrated_sensor_token);
     const std::string& channel =
         sensor_channels.at(calibrated_sensor.sensor_token);
-    for (const char* camera_channel : kCameraChannels) {
-      if (channel == camera_channel) {
-        if (!calibrated_sensor.has_camera_intrinsics) {
-          throw std::runtime_error("camera calibration has no intrinsics");
-        }
-        camera_data_by_channel.emplace(channel, sample_data);
-        ego_pose_tokens.insert(sample_data.ego_pose_token);
-        break;
+    if (channel == selected_channel) {
+      if (!calibrated_sensor.has_camera_intrinsics) {
+        throw std::runtime_error("camera calibration has no intrinsics");
       }
+      camera_data_by_channel.emplace(channel, sample_data);
+      ego_pose_tokens.insert(sample_data.ego_pose_token);
     }
   }
-  if (camera_data_by_channel.size() != kCameraChannels.size()) {
-    throw std::runtime_error("sample does not contain all six camera channels");
+  if (camera_data_by_channel.size() != 1) {
+    throw std::runtime_error("sample does not contain camera channel: " +
+                             selected_channel);
   }
 
   const auto ego_poses =
@@ -329,98 +407,57 @@ void RunDiagnostic(const std::string& dataset_root,
     throw std::runtime_error("ego_pose.json has missing records");
   }
 
-  const SampleData& front_data = camera_data_by_channel.at("CAM_FRONT");
+  const SampleData& selected_data = camera_data_by_channel.at(selected_channel);
   const Eigen::Isometry3d T_global_ego_reference =
-      ego_poses.at(front_data.ego_pose_token).T_global_ego;
+      ego_poses.at(selected_data.ego_pose_token).T_global_ego;
 
   Eigen::Isometry3d T_vehicle_ego = Eigen::Isometry3d::Identity();
   T_vehicle_ego.linear() << 0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0;
   const Eigen::Isometry3d T_vehicle_global =
       T_vehicle_ego * T_global_ego_reference.inverse();
 
-  IpmConfig config;
-  config.resolution = kBevResolution;
-  config.bev_width = static_cast<int>(2.0 * kBevRadiusMeters / kBevResolution);
-  config.bev_height = config.bev_width;
-  config.x_min = -kBevRadiusMeters;
-  config.y_min = -kBevRadiusMeters;
-
-  const cv::Size bev_size(config.bev_width, config.bev_height);
-  cv::Mat accumulated(bev_size, CV_32FC3, cv::Scalar::all(0));
-  cv::Mat weights(bev_size, CV_32FC1, cv::Scalar::all(0));
-
-  for (const char* channel : kCameraChannels) {
-    const SampleData& sample_data = camera_data_by_channel.at(channel);
-    const CalibratedSensor& calibrated_sensor =
-        calibrated_sensors.at(sample_data.calibrated_sensor_token);
-    const EgoPose& ego_pose = ego_poses.at(sample_data.ego_pose_token);
-    const std::string image_path = JoinPath(dataset_root, sample_data.filename);
-    const cv::Mat image = cv::imread(image_path, cv::IMREAD_COLOR);
-    if (image.empty()) {
-      throw std::runtime_error("cannot read camera image: " + image_path);
-    }
-
-    auto camera_model = std::make_shared<PinholeCameraModel>();
-    if (!camera_model->Init(static_cast<uint32_t>(image.cols),
-                            static_cast<uint32_t>(image.rows),
-                            calibrated_sensor.intrinsics)) {
-      throw std::runtime_error(std::string("invalid intrinsics for channel: ") +
-                               channel);
-    }
-
-    const Eigen::Isometry3d T_vehicle_camera = T_vehicle_global *
-                                               ego_pose.T_global_ego *
-                                               calibrated_sensor.T_ego_sensor;
-    const IpmTransformer transformer(camera_model, T_vehicle_camera, config);
-
-    cv::Mat camera_bev;
-    TransformOpenCv(transformer, image, &camera_bev);
-    std::vector<unsigned char> source_mask(
-        static_cast<std::size_t>(image.rows) *
-            static_cast<std::size_t>(image.cols),
-        255);
-    std::vector<unsigned char> bev_mask_data(
-        static_cast<std::size_t>(config.bev_height) *
-            static_cast<std::size_t>(config.bev_width),
-        0);
-    transformer.Transform(
-        ImageView<const unsigned char>{source_mask.data(), image.cols,
-                                       image.rows, 1,
-                                       static_cast<std::size_t>(image.cols)},
-        ImageView<unsigned char>{bev_mask_data.data(), config.bev_width,
-                                 config.bev_height, 1,
-                                 static_cast<std::size_t>(config.bev_width)},
-        InterpolationMode::kNearest);
-    cv::Mat bev_mask(config.bev_height, config.bev_width, CV_8UC1,
-                     bev_mask_data.data());
-
-    cv::Mat camera_bev_float;
-    camera_bev.convertTo(camera_bev_float, CV_32FC3);
-    cv::Mat mask_float;
-    bev_mask.convertTo(mask_float, CV_32FC1, 1.0 / 255.0);
-    cv::Mat mask_channels[] = {mask_float, mask_float, mask_float};
-    cv::Mat mask_three_channel;
-    cv::merge(mask_channels, 3, mask_three_channel);
-    accumulated += camera_bev_float.mul(mask_three_channel);
-    weights += mask_float;
+  const SampleData& sample_data = camera_data_by_channel.at(selected_channel);
+  const CalibratedSensor& calibrated_sensor =
+      calibrated_sensors.at(sample_data.calibrated_sensor_token);
+  const EgoPose& ego_pose = ego_poses.at(sample_data.ego_pose_token);
+  const std::string image_path = JoinPath(dataset_root, sample_data.filename);
+  const cv::Mat image = cv::imread(image_path, cv::IMREAD_COLOR);
+  if (image.empty()) {
+    throw std::runtime_error("cannot read camera image: " + image_path);
   }
 
-  cv::Mat safe_weights;
-  cv::max(weights, 1.0, safe_weights);
-  std::vector<cv::Mat> channels;
-  cv::split(accumulated, channels);
-  for (cv::Mat& channel : channels) {
-    cv::divide(channel, safe_weights, channel);
+  auto camera_model = std::make_shared<PinholeCameraModel>();
+  if (!camera_model->Init(static_cast<uint32_t>(image.cols),
+                          static_cast<uint32_t>(image.rows),
+                          calibrated_sensor.intrinsics)) {
+    throw std::runtime_error(std::string("invalid intrinsics for channel: ") +
+                             selected_channel);
   }
-  cv::Mat stitched;
-  cv::merge(channels, stitched);
-  stitched.convertTo(stitched, CV_8UC3);
-  if (!cv::imwrite(output_path, stitched)) {
+
+  const Eigen::Isometry3d T_vehicle_camera =
+      T_vehicle_global * ego_pose.T_global_ego * calibrated_sensor.T_ego_sensor;
+  const IpmConfig config = MakeAutoFitConfig(*camera_model, T_vehicle_camera);
+  const CpuIpmTransformer transformer(camera_model, T_vehicle_camera, config);
+  cv::Mat camera_bev;
+  TransformOpenCv(transformer, image, &camera_bev);
+  if (!cv::imwrite(output_path, camera_bev, {cv::IMWRITE_PNG_COMPRESSION, 0})) {
     throw std::runtime_error("cannot write BEV image: " + output_path);
   }
-  std::cout << "Wrote six-camera BEV diagnostic to " << output_path << " ("
-            << config.bev_width << "x" << config.bev_height << ", "
-            << config.resolution << " m/pixel).\n";
+  const cv::Mat verified_output = cv::imread(output_path, cv::IMREAD_UNCHANGED);
+  if (verified_output.size() != camera_bev.size() ||
+      verified_output.type() != camera_bev.type() ||
+      cv::norm(verified_output, camera_bev, cv::NORM_INF) != 0.0) {
+    throw std::runtime_error("PNG output failed lossless pixel verification: " +
+                             output_path);
+  }
+  std::cout << "Wrote lossless single-camera BEV for " << selected_channel
+            << " to " << output_path << " (source " << image.cols << "x"
+            << image.rows << ", BEV " << camera_bev.cols << "x"
+            << camera_bev.rows << ", x " << config.x_min << ".."
+            << config.x_min + (config.bev_width - 1) * config.resolution
+            << " m, y 0.." << kBevForwardRangeMeters << " m, "
+            << config.resolution << " m/pixel; "
+            << "PNG round-trip pixels identical).\n";
 }
 
 }  // namespace
@@ -429,14 +466,16 @@ void RunDiagnostic(const std::string& dataset_root,
 }  // namespace wheel
 
 int main(int argc, char** argv) {
-  if (argc != 5) {
+  if (argc != 6) {
     std::cerr << "Usage: nuscenes_bev_diagnostic <dataset-root> "
-                 "<metadata-dir> <sample-token> <output.png>\n";
+                 "<metadata-dir> <sample-token> <camera-channel> "
+                 "<output.png>\n";
     return EXIT_FAILURE;
   }
 
   try {
-    wheel::vision::image::RunDiagnostic(argv[1], argv[2], argv[3], argv[4]);
+    wheel::vision::image::RunDiagnostic(argv[1], argv[2], argv[3], argv[4],
+                                        argv[5]);
   } catch (const std::exception& error) {
     std::cerr << "nuScenes BEV diagnostic failed: " << error.what() << '\n';
     return EXIT_FAILURE;

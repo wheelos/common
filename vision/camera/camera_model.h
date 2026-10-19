@@ -93,7 +93,8 @@ class CameraModel {
   virtual bool PixelToRay(const Eigen::Vector2f& pixel,
                           Eigen::Vector3f* ray) const = 0;
 
-  // Return the undistorted ideal model corresponding to this projection model.
+  // Return this model's ideal (zero-distortion) projection, preserving its
+  // projection geometry and intrinsics.
   virtual std::shared_ptr<CameraModel> GetIdealModel() const = 0;
 
   virtual CameraModelType Type() const = 0;
