@@ -8,6 +8,8 @@ message VehicleProfile {
   // The profile declares which standardized sensor frames must be present.
   repeated string required_sensor_frame_id = 3;
   optional bool test_only = 4 [default = false];
+  optional string vehicle_id = 5;
+  optional string manifest_sha256 = 6;
 }
 
 enum SensorType {
@@ -16,6 +18,8 @@ enum SensorType {
   LIDAR = 2;
   CAMERA = 3;
   GNSS = 4;
+  RADAR = 5;
+  ULTRASONIC = 6;
 }
 
 message SensorCalibration {
@@ -27,10 +31,32 @@ message SensorCalibration {
   optional string intrinsic_file = 6;
   optional string optical_frame_id = 7;
   optional string optical_extrinsic_file = 8;
+  optional string metadata_file = 9;
+  optional string lidar_height_file = 10;
+  optional string camera_model = 11;
+  optional uint32 image_width = 12;
+  optional uint32 image_height = 13;
+}
+
+message StaticTransform {
+  optional string parent_frame_id = 1;
+  optional string child_frame_id = 2;
+  // T_parent_child maps child-frame coordinates into the parent frame.
+  optional string extrinsic_file = 3;
+}
+
+message CalibrationAsset {
+  optional string relative_path = 1;
+  optional string sha256 = 2;
 }
 
 message CalibrationManifest {
   optional string calibration_version = 1;
   repeated SensorCalibration sensor = 2;
   optional string lidar_height_file = 4;
+  optional uint32 schema_version = 5 [default = 1];
+  optional string vehicle_id = 6;
+  repeated StaticTransform static_transform = 7;
+  repeated CalibrationAsset asset = 8;
+  optional string provenance = 9;
 }

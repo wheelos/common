@@ -17,24 +17,64 @@ Profiles marked `test_only: true` are rejected unless
 `WHEELOS_ALLOW_TEST_CALIBRATION=1` is set explicitly; never set this variable
 for a real vehicle.
 
-Sensor frame IDs use the standard names `imu_link`, `gnss_antenna_link`,
-optional `gnss_antenna_secondary_link`, `lidar_top_link`, and the
-eight `camera_*_link` positions, each camera paired with its corresponding
-`camera_*_optical_frame` and an explicit optical-frame extrinsic file. A
-vehicle manifest lists only installed and calibrated sensors; absent hardware
-must not be represented with fabricated zero-valued calibration. Static
-sensor frames are children of `base_link`, while optical frames are children
-of their camera link;
-the dynamic `earth -> map -> odom -> base_link` chain is owned elsewhere.
+Schema 2 separates `sensor` inventory from `static_transform` edges. It supports
+multiple LiDARs, radar, ultrasonic, IMU, GNSS and cameras. Sensor frames must be
+connected to `base_link`; intermediate mounting frames are allowed. Camera
+optical frames must be children of their camera link. Dynamic world/map/odom
+edges are owned elsewhere. A manifest lists only installed and calibrated
+sensors; do not fabricate zero-valued calibration for absent hardware.
 
-The registry checks profile/version consistency, canonical sensor frames,
-unique sensor IDs and frames, required per-sensor file references, and file
-existence. Transform publishes all selected static extrinsics. Localization
-reads IMU-to-GNSS antenna lever arms through static TF; only GNSS uncertainty
-and ground-relative LiDAR height remain semantic calibration parameters outside
-TF. Perception reads camera intrinsics from the same selected bundle.
+Schema 1 remains readable for existing API consumers, including its original
+canonical frame restrictions and sensor-owned extrinsic fields. Do not mix
+schema 1 extrinsic fields with schema 2 graph edges. New deployments should use
+schema 2.
+Its global `lidar_height_file` is still consumed for the single LiDAR when no
+per-sensor height is specified. This compatibility does not invent missing
+perception metadata; old bundles must supply it to use SensorManager.
+
+Schema 2 requires matching profile/manifest `vehicle_id`, `provenance`,
+`profile.manifest_sha256`, and an `asset { relative_path, sha256 }` entry for every
+referenced file. Hashes are lowercase SHA256 of exact file bytes, not textproto
+semantic hashes. The manifest does not hash itself: its hash lives in the
+profile. `WHEELOS_CALIBRATION_MANIFEST_SHA256`, when set, additionally pins the
+deployment-wide expected manifest. This establishes content identity, not the
+physical accuracy of the calibration or an authenticity signature.
+
+The registry checks unique IDs/frames, required sensors, graph connectivity,
+cycles, duplicate children, file readability and digests. Sensor IDs must not
+alias `base_link` or another graph frame. Files are resolved
+under the canonical selected bundle, not by searching module directories or
+re-reading the asset root for each file. Failed loads expose no partial state.
+Bundles must remain immutable and read-only throughout process execution.
+
+Perception-capable sensors reference a `metadata_file`: a single existing
+perception `SensorMeta` textproto, not a `MultiSensorMeta` list. The adapter
+validates name/frame/type agreement; camera metadata and perception
+`SensorInfo.frame_id` use the optical frame, while other sensors use `frame_id`.
+SensorManager frame queries normalize camera IDs and mechanical links to that
+optical measurement frame.
+Perception-specific enums do not enter the
+common schema. Cameras explicitly select `camera_model: "brown"`,
+`image_width`, `image_height`, `intrinsic_file` and `optical_frame_id`.
+Additional model parsers require explicit support, not silent Brown fallback.
+
+Transform validates numeric extrinsics and YAML/manifest frame agreement before
+publishing the complete static graph. `T_parent_child` maps coordinates from
+child to parent, in metres with unit quaternions. Perception reads the same
+bundle's intrinsics. `lidar_height_file` belongs to a LiDAR sensor in schema 2;
+`LoadLidarHeight` checks finite positive height and finite nonnegative variance.
+Its YAML schema is `vehicle.parameters.{height,height_var}`. The loader returns
+the selected LiDAR frame together with the values, so consumers do not repeat
+sensor selection. Ground height is measured along nominal `base_link` +Z and
+is not equivalent to the LiDAR's base-frame z translation or distance along a
+tilted LiDAR axis. Transform owns derived frame/ground geometry; Common does
+not depend on TF or perception types.
 
 No vehicle asset files are installed by this module. The current cargo
 measurements have not been confirmed against the new frame mapping, so they
 must not be activated through this registry until their provenance is
 verified.
+
+The source consumer uses opt-in local Bzlmod overrides during development.
+Changes here must be published and selected through the registry before claiming
+release-mode acceptance; local override builds alone are not a release.

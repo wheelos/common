@@ -28,6 +28,13 @@ struct ResolvedSensorCalibration {
   std::string resolved_extrinsic_file;
   std::string resolved_intrinsic_file;
   std::string resolved_optical_extrinsic_file;
+  std::string resolved_metadata_file;
+  std::string resolved_lidar_height_file;
+};
+
+struct ResolvedStaticTransform {
+  StaticTransform calibration;
+  std::string resolved_extrinsic_file;
 };
 
 class Registry {
@@ -43,6 +50,15 @@ class Registry {
   const std::vector<ResolvedSensorCalibration>& sensors() const {
     return sensors_;
   }
+  const std::vector<ResolvedStaticTransform>& static_transforms() const {
+    return static_transforms_;
+  }
+  const std::string& manifest_sha256() const { return manifest_sha256_; }
+  const ResolvedSensorCalibration* FindSensor(
+      const std::string& sensor_id_or_frame) const;
+  bool ResolveFile(const std::string& relative_path,
+                   std::string* resolved_path) const;
+  static bool FileSha256(const std::string& path, std::string* digest);
   const std::string& resolved_lidar_height_file() const {
     return resolved_lidar_height_file_;
   }
@@ -53,12 +69,16 @@ class Registry {
 
  private:
   bool ValidateManifest();
+  bool LoadProfile(const std::string& profile_key);
+  bool ValidateStaticGraph();
 
   VehicleProfile profile_;
   CalibrationManifest manifest_;
   std::string profile_path_;
   std::string bundle_path_;
   std::vector<ResolvedSensorCalibration> sensors_;
+  std::vector<ResolvedStaticTransform> static_transforms_;
+  std::string manifest_sha256_;
   std::string resolved_lidar_height_file_;
 };
 
