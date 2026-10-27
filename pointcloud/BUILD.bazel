@@ -16,6 +16,7 @@ cc_library(
         "runtime/cuda_types.h",
     ],
     visibility = ["//visibility:public"],
+    deps = ["@cuda//:cuda_runtime"],
 )
 
 cuda_library(
@@ -23,21 +24,21 @@ cuda_library(
     srcs = ["memory/buffer.cu"],
     hdrs = ["memory/buffer.h"],
     includes = [".."],
+    visibility = ["//visibility:public"],
     deps = [
         ":cuda_stream",
         ":types",
     ],
-    visibility = ["//visibility:public"],
 )
 
 cc_library(
     name = "buffer_pool",
     srcs = ["memory/buffer_pool.cc"],
     hdrs = ["memory/buffer_pool.h"],
+    visibility = ["//visibility:public"],
     deps = [
         ":buffer",
     ],
-    visibility = ["//visibility:public"],
 )
 
 cc_library(
@@ -51,13 +52,13 @@ cc_library(
         "core/point_cloud_buffer.h",
         "core/rigid_transform.h",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         ":buffer",
         ":cuda_stream",
         ":types",
-        "@eigen//:eigen",
+        "@eigen",
     ],
-    visibility = ["//visibility:public"],
 )
 
 cc_library(
@@ -66,22 +67,22 @@ cc_library(
         "range_image/range_image.h",
         "range_image/range_image_builder.h",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         ":buffer",
         ":core",
         ":cuda_stream",
         ":types",
     ],
-    visibility = ["//visibility:public"],
 )
 
 cuda_library(
     name = "range_image",
     srcs = ["range_image/range_image_builder.cu"],
+    visibility = ["//visibility:public"],
     deps = [
         ":range_image_api",
     ],
-    visibility = ["//visibility:public"],
 )
 
 cuda_library(
@@ -96,28 +97,28 @@ cuda_library(
         "filter/decimation_filter.h",
     ],
     includes = [".."],
+    visibility = ["//visibility:public"],
     deps = [
         ":buffer",
         ":core",
         ":cuda_stream",
         ":types",
     ],
-    visibility = ["//visibility:public"],
 )
 
 cc_library(
     name = "pointcloud",
+    visibility = ["//visibility:public"],
     deps = [
         ":buffer",
         ":buffer_pool",
         ":core",
+        ":cuda_stream",
         ":filter",
         ":range_image",
         ":range_image_api",
-        ":cuda_stream",
         ":types",
     ],
-    visibility = ["//visibility:public"],
 )
 
 cc_test(

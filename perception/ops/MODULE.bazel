@@ -1,0 +1,15 @@
+# Independent capability module within the wheelos/common source repository.
+module(
+    name = "wheelos_perception_ops",
+    version = "0.1.0",
+    compatibility_level = 1,
+)
+
+bazel_dep(name = "rules_cc", version = "0.0.9")
+bazel_dep(name = "rules_cuda", version = "0.3.0")
+bazel_dep(name = "spconv", version = "2.3.8.bcr.2")
+
+cuda = use_extension("@rules_cuda//cuda:extensions.bzl", "toolchain")
+use_repo(cuda, "cuda")
+
+bazel_dep(name = "googletest", version = "1.17.0", dev_dependency = True, repo_name = "com_google_googletest")

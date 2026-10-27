@@ -1,0 +1,55 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+load("@rules_cuda//cuda:defs.bzl", "cuda_library")
+
+# This package is the sole spconv-backed sparse graph executor implementation.
+package(default_visibility = ["//visibility:public"])
+
+config_setting(
+    name = "sm89",
+    flag_values = {"@rules_cuda//cuda:archs": "sm_89"},
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "sparse_model",
+    hdrs = ["include/spconv/sparse_model.h"],
+    strip_include_prefix = "include",
+)
+
+cc_library(
+    name = "spconv_backbone_api",
+    hdrs = ["include/spconv/sparse_backbone.h"],
+    strip_include_prefix = "include",
+    deps = [
+        ":sparse_model",
+        "@cuda//:cuda_runtime",
+    ],
+)
+
+cc_test(
+    name = "spconv_backbone_test",
+    size = "small",
+    srcs = ["tests/spconv_backbone_test.cc"],
+    tags = [
+        "gpu",
+        "manual",
+    ],
+    deps = [
+        ":spconv_backbone",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cuda_library(
+    name = "spconv_backbone",
+    srcs = ["src/spconv_backbone.cu"],
+    copts = [
+        "-std=c++17",
+        "-O3",
+        "--extended-lambda",
+    ],
+    deps = [":spconv_backbone_api"] + select(
+        {":sm89": ["@spconv"]},
+        no_match_error = "The packaged spconv source requires --@rules_cuda//cuda:archs=sm_89 (CUDA 12.8 / SM89 only).",
+    ),
+)

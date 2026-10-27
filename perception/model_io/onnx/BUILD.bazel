@@ -1,0 +1,27 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
+package(default_visibility = ["//visibility:private"])
+
+cc_library(
+    name = "sparse_model",
+    srcs = ["src/sparse_model.cc"],
+    hdrs = ["include/wheelos/perception/model_io/sparse_model.h"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//onnx/schema:onnx_proto_cc",
+        "@com_google_protobuf//:protobuf",
+        "@wheelos_perception_ops//spconv:sparse_model",
+    ],
+)
+
+cc_test(
+    name = "sparse_model_test",
+    size = "small",
+    srcs = ["tests/sparse_model_test.cc"],
+    deps = [
+        ":sparse_model",
+        "//onnx/schema:onnx_proto_cc",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

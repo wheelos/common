@@ -1,0 +1,10 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "importer_consumer",
+    srcs = ["importer_consumer.cc"],
+    deps = [
+        "@wheelos_perception_model_io//onnx:sparse_model",
+        "@wheelos_perception_ops//spconv:sparse_model",
+    ],
+)

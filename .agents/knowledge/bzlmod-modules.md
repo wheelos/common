@@ -12,6 +12,14 @@ This follows the repository knowledge layout used by `wheelos/core`
 (`AGENTS.md` and `.agents/knowledge/`), without copying core-specific
 architecture details.
 
+## Implemented Perception Modules
+
+The [perception capability index](../../perception/README.md) records the
+implemented `perception/ops` and `perception/model_io` module roots, public
+identities, and detector ownership boundaries. Directory classification and
+Bzlmod module identity are separate; existing identities need not match the
+short directory names. These modules are locally integrated, not yet published.
+
 ## Module Boundaries
 
 - Split by cohesive public capability and dependency boundary, not by every
