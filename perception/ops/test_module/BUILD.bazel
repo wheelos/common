@@ -1,7 +1,15 @@
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 
 cc_library(
     name = "executor_consumer",
     srcs = ["executor_consumer.cc"],
-    deps = ["@wheelos_perception_ops//spconv:spconv_backbone"],
+    deps = ["@wheelos_common//perception/ops/spconv:spconv_backbone"],
+)
+
+cc_binary(
+    name = "executor_consumer_link",
+    srcs = ["executor_consumer.cc"],
+    linkopts = ["-Wl,--no-undefined"],
+    linkshared = True,
+    deps = ["@wheelos_common//perception/ops/spconv:spconv_backbone"],
 )

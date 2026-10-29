@@ -2,23 +2,26 @@
 
 ## Goal
 
-Keep one Git repository for `wheelos/common`, while exposing independently
-usable and versioned capability modules such as `estimation`, `vision`, and
-`perception`. A consumer should be able to depend on only the modules it
-needs. This separates Git repository ownership from Bzlmod dependency
-boundaries; creating a module does not require creating another Git repository.
+Keep one Git repository for `wheelos/common`, and expose independently usable
+and versioned capability modules only where consumer and release boundaries
+justify them. A consumer should be able to depend on only the modules it needs.
+This separates Git repository ownership from Bzlmod dependency boundaries;
+creating a module does not require creating another Git repository.
 
 This follows the repository knowledge layout used by `wheelos/core`
 (`AGENTS.md` and `.agents/knowledge/`), without copying core-specific
 architecture details.
 
-## Implemented Perception Modules
+## Current Perception Packaging
 
-The [perception capability index](../../perception/README.md) records the
-implemented `perception/ops` and `perception/model_io` module roots, public
-identities, and detector ownership boundaries. Directory classification and
-Bzlmod module identity are separate; existing identities need not match the
-short directory names. These modules are locally integrated, not yet published.
+`perception/ops` and `perception/model_io` are Bazel package groups inside the
+root `wheelos_common` Bzlmod module, not independently versioned modules. Their
+separate directories and public targets preserve compute and model-format
+boundaries without requiring separate `MODULE.bazel` files or releases.
+Apollo consumers use targets such as
+`@wheelos_common//perception/ops/spconv:spconv_backbone` and
+`@wheelos_common//perception/model_io/onnx:sparse_model`. Keep this packaging
+unless independent dependency or release lifecycles become a requirement.
 
 ## Module Boundaries
 

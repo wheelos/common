@@ -1,25 +1,22 @@
 # Perception capabilities
 
-This directory groups independent common-library modules. It is not a
-detector runtime, Cyber integration package or an aggregate Bzlmod module.
+This directory groups packages in the single `wheelos_common` Bzlmod module.
+Keep compute and model-format responsibilities separate without publishing
+independently versioned perception modules for now.
 
-| Module root | Identity | Ownership |
+| Package group | Module | Ownership |
 | --- | --- | --- |
-| `ops/` | `wheelos_perception_ops` | Neutral sparse graph data, device API, CUDA executor and numerical tests |
-| `model_io/` | `wheelos_perception_model_io` | Supported sparse ONNX importer, schemas and validation tests |
+| `ops/` | `wheelos_common` | Neutral sparse graph data, device API, CUDA executor and numerical tests |
+| `model_io/` | `wheelos_common` | Supported sparse ONNX importer, schemas and validation tests |
 
 Model I/O depends only on the neutral graph target, not the executor. Model
-consumers depend directly on the public targets they use. BEVFusion and
+consumers declare `wheelos_common` and use its public package targets. BEVFusion and
 CenterPoint retain their preprocessing, heads, decoding and lifecycle;
 PointPillars retains its model-specific pillar/scatter/plugin implementation
 and has no mandatory spconv dependency.
 
-There are no compatibility aliases for the old `perception_ops/ops/spconv`
-source layout. Independent module source archives must include the module's
-own LICENSE and schema/source provenance. Registry publication remains separate
-from local override validation.
-
-The legacy root module is now developed as `wheelos_common@0.1.3`; it still
-owns existing framework-coupled packages and is not an aggregate for these
-independent perception modules. Registry `wheelos_common@0.1.1.bcr.1` repairs
-the older immutable source delivery, not this unpublished source snapshot.
+Use `@wheelos_common//perception/ops/spconv:spconv_backbone` and
+`@wheelos_common//perception/model_io/onnx:sparse_model`. Package-level dependencies
+keep the importer independent of CUDA compilation. Registry publication remains
+separate from local override validation; the released `v0.1.3` archive needs
+the registry's consolidation patch to expose this layout.

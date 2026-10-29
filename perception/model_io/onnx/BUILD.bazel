@@ -9,9 +9,9 @@ cc_library(
     strip_include_prefix = "include",
     visibility = ["//visibility:public"],
     deps = [
-        "//onnx/schema:onnx_proto_cc",
+        "//perception/model_io/onnx/schema:onnx_proto_cc",
+        "//perception/ops/spconv:sparse_model",
         "@com_google_protobuf//:protobuf",
-        "@wheelos_perception_ops//spconv:sparse_model",
     ],
 )
 
@@ -21,7 +21,7 @@ cc_test(
     srcs = ["tests/sparse_model_test.cc"],
     deps = [
         ":sparse_model",
-        "//onnx/schema:onnx_proto_cc",
+        "//perception/model_io/onnx/schema:onnx_proto_cc",
         "@com_google_googletest//:gtest_main",
     ],
 )

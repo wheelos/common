@@ -10,6 +10,6 @@ during common-library extraction. Both schema files retain their embedded
 upstream license notices. Their earlier import provenance is described above;
 no newer upstream schema revision is claimed.
 
-`//onnx/schema:onnx_proto_cc` supplies host-side protobuf parsing for this
+`//perception/model_io/onnx/schema:onnx_proto_cc` supplies host-side protobuf parsing for this
 module's importer, independently of Apollo. This package does not execute
 operators or depend on the spconv CUDA library.

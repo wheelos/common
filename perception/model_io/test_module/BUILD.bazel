@@ -4,7 +4,7 @@ cc_library(
     name = "importer_consumer",
     srcs = ["importer_consumer.cc"],
     deps = [
-        "@wheelos_perception_model_io//onnx:sparse_model",
-        "@wheelos_perception_ops//spconv:sparse_model",
+        "@wheelos_common//perception/model_io/onnx:sparse_model",
+        "@wheelos_common//perception/ops/spconv:sparse_model",
     ],
 )

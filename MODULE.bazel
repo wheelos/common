@@ -23,6 +23,7 @@ bazel_dep(name = "nlohmann_json", version = "3.12.0", repo_name = "com_github_nl
 bazel_dep(name = "osqp", version = "1.0.0.bcr.2")
 bazel_dep(name = "proj", version = "9.8.0")
 bazel_dep(name = "sqlite3", version = "3.50.0")
+bazel_dep(name = "spconv", version = "2.3.8.bcr.3")
 
 cuda = use_extension("@rules_cuda//cuda:extensions.bzl", "toolchain")
 use_repo(cuda, "cuda")
