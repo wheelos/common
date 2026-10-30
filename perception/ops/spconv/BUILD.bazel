@@ -45,7 +45,6 @@ cuda_library(
     srcs = ["src/spconv_backbone.cu"],
     copts = [
         "-std=c++17",
-        "-O3",
         "--extended-lambda",
     ],
     deps = [":spconv_backbone_api"] + select(

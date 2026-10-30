@@ -97,7 +97,9 @@ class BufferPool {
             "tensor exceeds memory limit");
     auto& buffer = buffers_[name];
     const size_t old_bytes = buffer.empty() ? 0 : buffer.nbytes();
-    if (buffer.empty() || buffer.size() < count || buffer.dtype() != dtype) {
+    const size_t element_count = static_cast<size_t>(count);
+    if (buffer.empty() || buffer.size() < element_count ||
+        buffer.dtype() != dtype) {
       const size_t new_bytes = static_cast<size_t>(count) * width;
       Require(bytes_ - old_bytes <= kLimit - new_bytes,
               "retained workspace exceeds 1 GiB limit");
@@ -303,7 +305,7 @@ class SpconvBackbone final : public SparseBackbone {
           output = input;
           std::vector<int64_t> shape(layer.dense_shape.begin(),
                                      layer.dense_shape.end());
-          Require(Volume(shape) == input.features.size(),
+          Require(static_cast<uint64_t>(Volume(shape)) == input.features.size(),
                   "Reshape volume mismatch");
           output.features = input.features.view(tv::TensorShape(shape));
         }
